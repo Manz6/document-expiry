@@ -1,28 +1,36 @@
 // frontend/src/App.jsx
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
+import Login from './Login';
 
 function App() {
-  const [data, setData] = useState([]);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
-    fetchData();
+    // Check if user is already logged in
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) setUser(session.user);
+    });
+
+    // Listen for auth changes
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => {
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
-  async function fetchData() {
-    const { data, error } = await supabase.from('documents').select('*');
-    if (error) console.error('Supabase error:', error);
-    else setData(data);
+  if (!user) {
+    return <Login onLogin={setUser} />;
   }
 
   return (
     <div>
-      <h4>Documents Expiry Tracker</h4>
-      <ul>
-        {data.map((doc) => (
-          <li key={doc.id}>{doc.name} - {doc.expiry_date}</li>
-        ))}
-      </ul>
+      <h1>Welcome, {user.email}!</h1>
+      {/* Your main app content here */}
+      <button onClick={() => supabase.auth.signOut()}>Logout</button>
     </div>
   );
 }
